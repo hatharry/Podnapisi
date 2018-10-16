@@ -7,7 +7,7 @@ namespace Podnapisi
 {
     public class Plugin : BasePlugin, IHasThumbImage
     {
-        private Guid _id = new Guid("9C099C87-C6ED-4E7B-A0D6-AB65AD87280C");
+        private Guid _id = new Guid("0A70BB83-E28F-4633-923D-B87244697831");
         public override Guid Id
         {
             get { return _id; }
