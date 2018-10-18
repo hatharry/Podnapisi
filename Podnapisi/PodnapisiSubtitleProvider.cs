@@ -83,8 +83,26 @@ namespace Podnapisi
         {
             var url = new StringBuilder("https://www.podnapisi.net/subtitles/search/old?sXML=1");
             url.Append($"&sL={request.TwoLetterISOLanguageName}");
-            url.Append($"&sK={request.Name}");
-            url.Append($"&sY={request.ProductionYear}");
+            if (request.SeriesName == null)
+            {
+                url.Append($"&sK={request.Name}");
+            }
+            else
+            {
+                url.Append($"&sK={request.SeriesName}");
+            }
+            if (request.ParentIndexNumber.HasValue)
+            {
+                url.Append($"&sTS={request.ParentIndexNumber}");
+            }
+            if (request.IndexNumber.HasValue)
+            {
+                url.Append($"&sTE={request.IndexNumber}");
+            }
+            if (request.ProductionYear.HasValue)
+            {
+                url.Append($"&sY={request.ProductionYear}");
+            }
 
             var opts = BaseRequestOptions;
             opts.Url = url.ToString();
@@ -121,7 +139,7 @@ namespace Podnapisi
         }
 
         public IEnumerable<VideoContentType> SupportedMediaTypes =>
-            new List<VideoContentType> { VideoContentType.Movie };
+            new List<VideoContentType> { VideoContentType.Episode, VideoContentType.Movie };
 
         public int Order => 2;
 
