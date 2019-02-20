@@ -81,6 +81,12 @@ namespace Podnapisi
         public async Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
             CancellationToken cancellationToken)
         {
+            if (request.IsForced.HasValue)
+            {
+                // TODO: Is this filter supported?
+                return new List<RemoteSubtitleInfo>();
+            }
+
             var url = new StringBuilder("https://www.podnapisi.net/subtitles/search/old?sXML=1");
             url.Append($"&sL={request.TwoLetterISOLanguageName}");
             if (request.SeriesName == null)
