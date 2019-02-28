@@ -16,6 +16,8 @@ using MediaBrowser.Model.Net;
 using MediaBrowser.Model.Xml;
 using System.Xml;
 using System.IO.Compression;
+using MediaBrowser.Model.Globalization;
+using System.Globalization;
 
 namespace Podnapisi
 {
@@ -26,21 +28,37 @@ namespace Podnapisi
         private readonly ILogger _logger;
         private readonly IApplicationHost _appHost;
         private readonly IXmlReaderSettingsFactory _xmlSettings;
+        private ILocalizationManager _localizationManager;
 
         public PodnapisiSubtitleProvider(ILogger logger, IHttpClient httpClient, IFileSystem fileSystem,
-            IApplicationHost appHost, IXmlReaderSettingsFactory xmlSettings)
+            IApplicationHost appHost, IXmlReaderSettingsFactory xmlSettings, ILocalizationManager localizationManager)
         {
             _logger = logger;
             _httpClient = httpClient;
             _fileSystem = fileSystem;
             _appHost = appHost;
             _xmlSettings = xmlSettings;
+            _localizationManager = localizationManager;
         }
 
         private HttpRequestOptions BaseRequestOptions => new HttpRequestOptions
         {
             UserAgent = $"Emby/{_appHost.ApplicationVersion}"
         };
+
+        private string NormalizeLanguage(string language)
+        {
+            if (language != null)
+            {
+                var culture = _localizationManager.FindLanguageInfo(language);
+                if (culture != null)
+                {
+                    return culture.ThreeLetterISOLanguageName;
+                }
+            }
+
+            return language;
+        }
 
         public async Task<SubtitleResponse> GetSubtitles(string id, CancellationToken cancellationToken)
         {
@@ -69,7 +87,7 @@ namespace Podnapisi
                 return new SubtitleResponse
                 {
                     Format = fileExt,
-                    Language = lang,
+                    Language = NormalizeLanguage(lang),
                     Stream = ms
                 };
 
@@ -128,7 +146,7 @@ namespace Podnapisi
 
                         using (var result = XmlReader.Create(reader, settings))
                         {
-                            return ParseSearch(result);
+                            return ParseSearch(result).OrderByDescending(i => i.DownloadCount);
                         }
                     }
                 }
@@ -193,11 +211,11 @@ namespace Podnapisi
         {
             var SubtitleInfo = new RemoteSubtitleInfo
             {
-                ProviderName = Name
+                ProviderName = Name,
+                Format = "srt"
             };
             reader.MoveToContent();
             reader.Read();
-
             var id = new StringBuilder();
 
             while (!reader.EOF && reader.ReadState == ReadState.Interactive)
@@ -208,22 +226,24 @@ namespace Podnapisi
                     {
                         case "pid":
                             {
-                                SubtitleInfo.Id = reader.ReadElementContentAsString();
+                                id.Append($"{reader.ReadElementContentAsString()},");
                                 break;
                             }
-                        case "title":
+                        case "release":
                             {
                                 SubtitleInfo.Name = reader.ReadElementContentAsString();
                                 break;
                             }
                         case "url":
                             {
-                                SubtitleInfo.Id = $"{SubtitleInfo.Id},{reader.ReadElementContentAsString().Split('/')[5]}";
+                                id.Append($"{reader.ReadElementContentAsString().Split('/')[5]},");
                                 break;
                             }
                         case "language":
                             {
-                                SubtitleInfo.Id = $"{SubtitleInfo.Id},{reader.ReadElementContentAsString()}";
+                                var lang = reader.ReadElementContentAsString();
+                                SubtitleInfo.ThreeLetterISOLanguageName = NormalizeLanguage(lang);
+                                id.Append($"{lang},");
                                 break;
                             }
                         case "rating":
@@ -248,6 +268,7 @@ namespace Podnapisi
                     reader.Read();
                 }
             }
+            SubtitleInfo.Id = id.ToString();
             return SubtitleInfo;
         }
 
