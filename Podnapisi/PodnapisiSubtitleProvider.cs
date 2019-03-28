@@ -27,17 +27,15 @@ namespace Podnapisi
         private readonly IHttpClient _httpClient;
         private readonly ILogger _logger;
         private readonly IApplicationHost _appHost;
-        private readonly IXmlReaderSettingsFactory _xmlSettings;
         private ILocalizationManager _localizationManager;
 
         public PodnapisiSubtitleProvider(ILogger logger, IHttpClient httpClient, IFileSystem fileSystem,
-            IApplicationHost appHost, IXmlReaderSettingsFactory xmlSettings, ILocalizationManager localizationManager)
+            IApplicationHost appHost, ILocalizationManager localizationManager)
         {
             _logger = logger;
             _httpClient = httpClient;
             _fileSystem = fileSystem;
             _appHost = appHost;
-            _xmlSettings = xmlSettings;
             _localizationManager = localizationManager;
         }
 
