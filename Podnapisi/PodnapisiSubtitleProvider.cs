@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -16,7 +17,6 @@ using MediaBrowser.Model.Net;
 using System.Xml;
 using System.IO.Compression;
 using MediaBrowser.Model.Globalization;
-using System.Globalization;
 
 namespace Podnapisi
 {
@@ -47,7 +47,7 @@ namespace Podnapisi
         {
             if (language != null)
             {
-                var culture = _localizationManager.FindLanguageInfo(language);
+                var culture = _localizationManager.FindLanguageInfo(language.AsSpan());
                 if (culture != null)
                 {
                     return culture.ThreeLetterISOLanguageName;
