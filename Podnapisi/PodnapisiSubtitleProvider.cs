@@ -102,6 +102,11 @@ namespace Podnapisi
                 // TODO: Is this filter supported?
                 return new List<RemoteSubtitleInfo>();
             }
+            if (request.IsPerfectMatch)
+            {
+                // TODO: Is this filter supported?
+                return new List<RemoteSubtitleInfo>();
+            }
 
             var url = new StringBuilder("https://www.podnapisi.net/subtitles/search/old?sXML=1");
             url.Append($"&sL={request.TwoLetterISOLanguageName}");
