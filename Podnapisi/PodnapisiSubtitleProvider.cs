@@ -64,7 +64,7 @@ namespace Podnapisi
             var title = id.Split(',')[1];
             var lang = id.Split(',')[2];
             var opts = BaseRequestOptions;
-            opts.Url = $"https://www.podnapisi.net/{lang}/subtitles/{title}/{pid}/download";
+            opts.Url = $"https://www.podnapisi.net/en/subtitles/{title}/{pid}/download";
             _logger.Debug("Requesting {0}", opts.Url);
 
             using (var response = await _httpClient.GetResponse(opts).ConfigureAwait(false))
