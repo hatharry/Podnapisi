@@ -17,6 +17,7 @@ using MediaBrowser.Model.Net;
 using System.Xml;
 using System.IO.Compression;
 using MediaBrowser.Model.Globalization;
+using System.Globalization;
 
 namespace Podnapisi
 {
@@ -63,7 +64,7 @@ namespace Podnapisi
             var title = id.Split(',')[1];
             var lang = id.Split(',')[2];
             var opts = BaseRequestOptions;
-            opts.Url = $"https://www.podnapisi.net/{lang}/subtitles/{title}/{pid}/download";
+            opts.Url = $"https://www.podnapisi.net/en/subtitles/{title}/{pid}/download";
             _logger.Debug("Requesting {0}", opts.Url);
 
             using (var response = await _httpClient.GetResponse(opts).ConfigureAwait(false))
@@ -97,6 +98,11 @@ namespace Podnapisi
             CancellationToken cancellationToken)
         {
             if (request.IsForced.HasValue)
+            {
+                // TODO: Is this filter supported?
+                return new List<RemoteSubtitleInfo>();
+            }
+            if (request.IsPerfectMatch)
             {
                 // TODO: Is this filter supported?
                 return new List<RemoteSubtitleInfo>();
@@ -140,10 +146,11 @@ namespace Podnapisi
                         settings.IgnoreComments = true;
                         settings.DtdProcessing = DtdProcessing.Parse;
                         settings.MaxCharactersFromEntities = 1024;
+                        settings.Async = true;
 
                         using (var result = XmlReader.Create(reader, settings))
                         {
-                            return ParseSearch(result).OrderByDescending(i => i.DownloadCount);
+                            return (await ParseSearch(result).ConfigureAwait(false)).OrderByDescending(i => i.DownloadCount);
                         }
                     }
                 }
@@ -176,11 +183,11 @@ namespace Podnapisi
 
         public int Order => 2;
 
-        private List<RemoteSubtitleInfo> ParseSearch(XmlReader reader)
+        private async Task<List<RemoteSubtitleInfo>> ParseSearch(XmlReader reader)
         {
             var list = new List<RemoteSubtitleInfo>();
-            reader.MoveToContent();
-            reader.Read();
+            await reader.MoveToContentAsync().ConfigureAwait(false);
+            await reader.ReadAsync().ConfigureAwait(false);
 
             while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
@@ -192,39 +199,39 @@ namespace Podnapisi
                             {
                                 if (reader.IsEmptyElement)
                                 {
-                                    reader.Read();
+                                    await reader.ReadAsync().ConfigureAwait(false);
                                     continue;
                                 }
                                 using (var subReader = reader.ReadSubtree())
                                 {
-                                    list.Add(ParseSubtitleList(subReader));
+                                    list.Add(await ParseSubtitleList(subReader).ConfigureAwait(false));
                                 }
                                 break;
                             }
                         default:
                             {
-                                reader.Skip();
+                                await reader.SkipAsync().ConfigureAwait(false);
                                 break;
                             }
                     }
                 }
                 else
                 {
-                    reader.Read();
+                    await reader.ReadAsync().ConfigureAwait(false);
                 }
             }
             return list;
         }
 
-        private RemoteSubtitleInfo ParseSubtitleList(XmlReader reader)
+        private async Task<RemoteSubtitleInfo> ParseSubtitleList(XmlReader reader)
         {
             var SubtitleInfo = new RemoteSubtitleInfo
             {
                 ProviderName = Name,
                 Format = "srt"
             };
-            reader.MoveToContent();
-            reader.Read();
+            await reader.MoveToContentAsync().ConfigureAwait(false);
+            await reader.ReadAsync().ConfigureAwait(false);
             var id = new StringBuilder();
 
             while (!reader.EOF && reader.ReadState == ReadState.Interactive)
@@ -235,52 +242,75 @@ namespace Podnapisi
                     {
                         case "pid":
                             {
-                                id.Append($"{reader.ReadElementContentAsString()},");
+                                id.Append($"{(await reader.ReadElementContentAsStringAsync().ConfigureAwait(false))},");
                                 break;
                             }
                         case "release":
                             {
-                                SubtitleInfo.Name = reader.ReadElementContentAsString();
+                                SubtitleInfo.Name = await reader.ReadElementContentAsStringAsync().ConfigureAwait(false);
                                 break;
                             }
                         case "url":
                             {
-                                id.Append($"{reader.ReadElementContentAsString().Split('/')[5]},");
+                                id.Append($"{(await reader.ReadElementContentAsStringAsync().ConfigureAwait(false)).Split('/')[5]},");
                                 break;
                             }
                         case "language":
                             {
-                                var lang = reader.ReadElementContentAsString();
+                                var lang = await reader.ReadElementContentAsStringAsync().ConfigureAwait(false);
                                 SubtitleInfo.ThreeLetterISOLanguageName = NormalizeLanguage(lang);
                                 id.Append($"{lang},");
                                 break;
                             }
                         case "rating":
                             {
-                                SubtitleInfo.CommunityRating = reader.ReadElementContentAsFloat();
+                                SubtitleInfo.CommunityRating = await ReadFloat(reader).ConfigureAwait(false);
                                 break;
                             }
                         case "downloads":
                             {
-                                SubtitleInfo.DownloadCount = reader.ReadElementContentAsInt();
+                                SubtitleInfo.DownloadCount = await ReadInt(reader).ConfigureAwait(false);
                                 break;
                             }
                         default:
                             {
-                                reader.Skip();
+                                await reader.SkipAsync().ConfigureAwait(false);
                                 break;
                             }
                     }
                 }
                 else
                 {
-                    reader.Read();
+                    await reader.ReadAsync().ConfigureAwait(false);
                 }
             }
             SubtitleInfo.Id = id.ToString();
             return SubtitleInfo;
         }
 
+        private async Task<float?> ReadFloat(XmlReader reader)
+        {
+            var val = await reader.ReadElementContentAsStringAsync().ConfigureAwait(false);
+
+            if (float.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out float result))
+            {
+                return result;
+            }
+
+            return null;
+        }
+
+        private async Task<int?> ReadInt(XmlReader reader)
+        {
+            var val = await reader.ReadElementContentAsStringAsync().ConfigureAwait(false);
+
+            if (int.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out int result))
+            {
+                return result;
+            }
+
+            return null;
+        }
     }
 
 }
